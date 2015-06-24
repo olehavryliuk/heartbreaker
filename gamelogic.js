@@ -1,5 +1,6 @@
 //Author Oleh Havryliuk 06.2015
 //global game variables
+var backgroundColor = "#cceeff";
 var gameLoopInterval = 50;
 var minHeartScale = 0.5;
 var maxHeartScale = 1.5;
@@ -11,8 +12,8 @@ var halfHeartHeight = 32;
 var maxHeartsPerLevel = 30;
 var sideMargin = 30;
 var gameState = "beforeStart";
-var level = 3;
-var maxLevel = 10;
+var level = 2;
+var maxLevel = 7;
 var levelTimePeriod = 20000;
 var unbrokenHeartCount = 0;
 var maxUnbrokenHearts = 5;
@@ -46,6 +47,7 @@ function heartBreakerApp(){
 //game variables	
 	var mouseX;
 	var mouseY;
+	var proceedInput = true;
 	var estimatedCreationTime = 0;
 	var levelTimeLeft = levelTimePeriod;
 	var levelDifficulty = 1.0;
@@ -67,7 +69,6 @@ function heartBreakerApp(){
 	function eventSheetLoaded()
 	{
 		setUpGame();
-	//	alert("sheetLoaded");
 	}
 
 	function Heart(x, y, scale, scaleIncreasing)
@@ -78,19 +79,23 @@ function heartBreakerApp(){
 		this.scaleIncreasing = scaleIncreasing;
 	}
 	Heart.prototype.isIn = function (x, y)
-	{
-		//Simple rect implementation
-		if (this.x < x && this.y < y && this.x + 2 * halfHeartWidth > x && this.y + 2 * halfHeartHeight > y)
+	{	
+		//Rect minus two triangles
+		var sx = this.x + (1.0 - this.scale) * halfHeartWidth;
+		var sy = this.y + (1.0 - this.scale) * halfHeartHeight; 
+		if (sx < x && sy + 4 * this.scale < y && sx + 2 * halfHeartWidth * this.scale > x && 
+			y < halfHeartHeight * (x - sx) / halfHeartWidth + sy + halfHeartHeight * this.scale &&
+			y < halfHeartHeight * (x - sx - 2 * halfHeartWidth * this.scale) / (-halfHeartWidth) + sy + halfHeartHeight * this.scale)
 		{
 			return true;
 		}
-		return false;
+		
+		return false;		
 	};
 	
 	function setUpGame()
 	{
 		gameState = "beforeStart";
-		level = 1;
 		gameCanvas.addEventListener("click", onMouseClick, false);	
 		gameLoop();
 	}
@@ -103,13 +108,14 @@ function heartBreakerApp(){
 		unbrokenHeartCount = 0;
 		levelDifficulty = level * interLevelDifficultyCoef;
 		levelTimeLeft = levelTimePeriod;
+		proceedInput = true;
 		gameState = "started";
 	}
 	
 	function drawScreen()
 	{
 		context.setTransform(1, 0, 0, 1, 0, 0);
-		context.fillStyle = '#eeffee';
+		context.fillStyle = backgroundColor;
 		context.fillRect(0, 0, canvasWidth, canvasHeight);
 		
 	//Starting draw loop here
@@ -293,12 +299,18 @@ function heartBreakerApp(){
 	
 	function onMouseClick(event)
 	{
+		if (!proceedInput)
+		{
+			return;
+		}
+		
 		mouseX = event.clientX - gameCanvas.offsetLeft;
 		mouseY = event.clientY - gameCanvas.offsetTop;
 		if (gameState === "beforeStart" || gameState === "beforeNextLevel")
 		{
 			//startGame();
 			window.setTimeout(startGame, 1000);
+			proceedInput = false;
 		}
 		else if (gameState === "started")
 		{
@@ -308,7 +320,7 @@ function heartBreakerApp(){
 	
 	function checkPointForEntry(x, y)
 	{
-		for (var i = 0; i < hearts.length; i++)
+		for (var i = hearts.length - 1; i >= 0; i--)
 		{
 			var heart =  hearts[i];
 			if (heart.isIn(x, y))
@@ -318,7 +330,7 @@ function heartBreakerApp(){
 				heart.distance = 0.0;
 				brokenHearts.push(heart);
 				hearts.splice(i, 1);
-				return;
+				return true;
 			}
 		}
 	}	 
