@@ -1,6 +1,6 @@
+//Author Oleh Havryliuk 06.2015
 //global game variables
 var gameLoopInterval = 50;
-//var heartBaseLiveTime = 1000;
 var minHeartScale = 0.5;
 var maxHeartScale = 1.5;
 var heartScaleFactor = 0.015;
@@ -18,6 +18,11 @@ var unbrokenHeartCount = 0;
 var maxUnbrokenHearts = 5;
 var inLevelDifficultyIncreaser = 1.002;
 var interLevelDifficultyCoef = 0.5;
+//broken heart globals
+var brokenHeartScaleCoef = 0.02;
+var brokenHeartRotationCoef = 0.1;
+var brokenHeartDistanceCoef = 1.0;
+var brokenHeartAlphaeCoef = 0.03;
 
 window.addEventListener('load', eventWindowLoaded, false);
 
@@ -45,9 +50,10 @@ function heartBreakerApp(){
 	var levelTimeLeft = levelTimePeriod;
 	var levelDifficulty = 1.0;
 	var hearts = [];
+	var brokenHearts = [];
 	var heartSheet = new Image();
 	heartSheet.addEventListener('load', eventSheetLoaded , false);
-	heartSheet.src = "images/heart.png";
+	heartSheet.src = "images/heartSheet.png";
 	
 	//Gradient text output setup
 	var gradientColorStops = new Array(
@@ -91,12 +97,13 @@ function heartBreakerApp(){
 	
 	function startGame()
 	{
-		gameState = "started";
+		hearts = [];
+		brokenHearts = [];
 		estimatedCreationTime = 0;
 		unbrokenHeartCount = 0;
 		levelDifficulty = level * interLevelDifficultyCoef;
 		levelTimeLeft = levelTimePeriod;
-		hearts = [];
+		gameState = "started";
 	}
 	
 	function drawScreen()
@@ -108,13 +115,57 @@ function heartBreakerApp(){
 	//Starting draw loop here
 		if (gameState === "started")
 		{
+		//display hearts
 			for (var i = 0; i < hearts.length; i++)
 			{
 				context.setTransform(1, 0, 0, 1, 0, 0);
 				context.translate(hearts[i].x + halfHeartWidth, hearts[i].y + halfHeartHeight);
 				context.scale(hearts[i].scale, hearts[i].scale);
-				context.drawImage(heartSheet, -halfHeartWidth, -halfHeartHeight);
+				context.drawImage(heartSheet,
+								  0,
+								  0,
+								  halfHeartWidth * 2,
+								  halfHeartHeight * 2,
+								  -halfHeartWidth,
+								  -halfHeartHeight,
+								  halfHeartWidth * 2,
+								  halfHeartHeight * 2);
 			}
+		//display broken hearts
+			for (var i = 0; i < brokenHearts.length; i++)
+			{
+				var brokenHeart = brokenHearts[i];
+			//first heart half
+				context.setTransform(1, 0, 0, 1, 0, 0);
+				context.translate(brokenHeart.x + halfHeartWidth / 2 - brokenHeart.distance, brokenHeart.y + halfHeartHeight);
+				context.scale(brokenHeart.scale, brokenHeart.scale);
+				context.rotate(-brokenHeart.rotation);
+				context.globalAlpha = brokenHeart.alpha;
+				context.drawImage(heartSheet,
+								  halfHeartWidth * 2,
+								  0,
+								  halfHeartWidth,
+								  halfHeartHeight * 2,
+								  -halfHeartWidth / 2,
+								  -halfHeartHeight,
+								  halfHeartWidth,
+								  halfHeartHeight * 2);
+			//second heart half
+				context.setTransform(1, 0, 0, 1, 0, 0);
+				context.translate(brokenHeart.x + halfHeartWidth * 3 / 2 + brokenHeart.distance, brokenHeart.y + halfHeartHeight);
+				context.scale(brokenHeart.scale, brokenHeart.scale);
+				context.rotate(brokenHeart.rotation);
+				context.drawImage(heartSheet,
+								  halfHeartWidth * 3,
+								  0,
+								  halfHeartWidth,
+								  halfHeartHeight * 2,
+								  -halfHeartWidth / 2,
+								  -halfHeartHeight,
+								  halfHeartWidth,
+								  halfHeartHeight * 2);
+			}
+			context.globalAlpha = 1.0;
 		}
 		else //Showing animated text
 		{
@@ -205,23 +256,36 @@ function heartBreakerApp(){
 				estimatedCreationTime = estimatedCreationTime - gameLoopInterval * levelDifficulty;
 				levelDifficulty *= inLevelDifficultyIncreaser;
 			}
-		}
-
+		
+		//recalculate broken heart position
+			for (var i = brokenHearts.length - 1; i>= 0; i--)
+			{
+				brokenHearts[i].scale -= brokenHeartScaleCoef;
+				brokenHearts[i].rotation += brokenHeartRotationCoef;
+				brokenHearts[i].distance += brokenHeartDistanceCoef;
+				brokenHearts[i].alpha -= brokenHeartAlphaeCoef;
+				if (brokenHearts[i].alpha <= 0)
+				{
+					brokenHearts.splice(i, 1);
+				}
+			}
+			
 		//check for level time
-		levelTimeLeft -= gameLoopInterval;
-		if (levelTimeLeft <= 0 && gameState != "over")
-		{
-			level++;
-			levelTimeLeft = levelTimePeriod;
-			if (level > maxLevel)
+			levelTimeLeft -= gameLoopInterval;
+			if (levelTimeLeft <= 0 && gameState != "over")
 			{
-				gameState = "victory";
-			}
-			else
-			{
-				gameState = "beforeNextLevel";
-			}
-		} 
+				level++;
+				levelTimeLeft = levelTimePeriod;
+				if (level > maxLevel)
+				{
+					gameState = "victory";
+				}
+				else
+				{
+					gameState = "beforeNextLevel";
+				}
+			} 
+		}
 		
 		window.setTimeout(gameLoop, gameLoopInterval);
 		drawScreen();
@@ -246,8 +310,13 @@ function heartBreakerApp(){
 	{
 		for (var i = 0; i < hearts.length; i++)
 		{
-			if (hearts[i].isIn(x, y))
+			var heart =  hearts[i];
+			if (heart.isIn(x, y))
 			{
+				heart.alpha = 1.0;
+				heart.rotation = 0.0;
+				heart.distance = 0.0;
+				brokenHearts.push(heart);
 				hearts.splice(i, 1);
 				return;
 			}
