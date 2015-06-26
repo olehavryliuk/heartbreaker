@@ -2,17 +2,17 @@
 //global game variables
 var backgroundColor = "#cceeff";
 var gameLoopInterval = 50;
-var minHeartScale = 0.5;
-var maxHeartScale = 1.5;
+var minHeartScale = 1.0;
+var maxHeartScale = 2.5;
 var heartScaleFactor = 0.015;
 var heartCreationInterval = 1000;
 var heartColor = "red";
 var halfHeartWidth = 32;
 var halfHeartHeight = 32;
 var maxHeartsPerLevel = 30;
-var sideMargin = 30;
+var sideMargin = 50;
 var gameState = "beforeStart";
-var level = 2;
+var startLevel = 2;
 var maxLevel = 7;
 var levelTimePeriod = 20000;
 var unbrokenHeartCount = 0;
@@ -40,8 +40,8 @@ function heartBreakerApp(){
 	
 	var canvasWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
 	var canvasHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
-	gameCanvas.width = canvasWidth;
 	gameCanvas.heigh = canvasHeight;
+	gameCanvas.width = canvasWidth;
 	//alert(canvasWidth + " " + canvasHeight);
 
 //game variables	
@@ -49,6 +49,7 @@ function heartBreakerApp(){
 	var mouseY;
 	var proceedInput = true;
 	var estimatedCreationTime = 0;
+	var level = startLevel;
 	var levelTimeLeft = levelTimePeriod;
 	var levelDifficulty = 1.0;
 	var hearts = [];
@@ -70,7 +71,7 @@ function heartBreakerApp(){
 	{
 		setUpGame();
 	}
-
+/** @constructor */
 	function Heart(x, y, scale, scaleIncreasing)
 	{
 		this.x = x;
@@ -81,11 +82,12 @@ function heartBreakerApp(){
 	Heart.prototype.isIn = function (x, y)
 	{	
 		//Rect minus two triangles
-		var sx = this.x + (1.0 - this.scale) * halfHeartWidth;
-		var sy = this.y + (1.0 - this.scale) * halfHeartHeight; 
-		if (sx < x && sy + 4 * this.scale < y && sx + 2 * halfHeartWidth * this.scale > x && 
-			y < halfHeartHeight * (x - sx) / halfHeartWidth + sy + halfHeartHeight * this.scale &&
-			y < halfHeartHeight * (x - sx - 2 * halfHeartWidth * this.scale) / (-halfHeartWidth) + sy + halfHeartHeight * this.scale)
+		var scale = this.scale + 0.1;
+		var sx = this.x + (1.0 - scale) * halfHeartWidth;
+		var sy = this.y + (1.0 - scale) * halfHeartHeight; 
+		if (sx < x && sy + 4 * scale < y && sx + 2 * halfHeartWidth * scale > x && 
+			y < halfHeartHeight * (x - sx) / halfHeartWidth + sy + halfHeartHeight * scale &&
+			y < halfHeartHeight * (x - sx - 2 * halfHeartWidth * scale) / (-halfHeartWidth) + sy + halfHeartHeight * scale)
 		{
 			return true;
 		}
@@ -311,6 +313,12 @@ function heartBreakerApp(){
 			//startGame();
 			window.setTimeout(startGame, 1000);
 			proceedInput = false;
+		}
+		else if (gameState === "over" || gameState === "victory")
+		{
+			level = startLevel;
+			window.setTimeout(startGame, 3000);
+			proceedInput = false;			
 		}
 		else if (gameState === "started")
 		{
