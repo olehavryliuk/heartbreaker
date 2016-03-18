@@ -1,5 +1,4 @@
 HeartBreaker Game
-http://heartbreaker.hol.es   - testing url
 ---------------------------------------------------------------------------
 Crossplatform HTML Canvas + Javascript game. Run it with your browser.
 Canvas size scales to your active browser window size, so you can run the game on different devices.

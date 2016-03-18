@@ -1,64 +1,90 @@
 //Author Oleh Havryliuk 06.2015
-//global game variables
-var backgroundColor = "#cceeff";
-var gameLoopInterval = 50;
-var minHeartScale = 1.0;
-var maxHeartScale = 2.5;
-var heartScaleFactor = 0.015;
-var heartCreationInterval = 1000;
-var heartColor = "red";
-var halfHeartWidth = 32;
-var halfHeartHeight = 32;
-var maxHeartsPerLevel = 30;
-var sideMargin = 50;
-var gameState = "beforeStart";
-var startLevel = 2;
-var maxLevel = 7;
-var levelTimePeriod = 20000;
-var unbrokenHeartCount = 0;
-var maxUnbrokenHearts = 5;
-var inLevelDifficultyIncreaser = 1.002;
-var interLevelDifficultyCoef = 0.5;
-//broken heart globals
-var brokenHeartScaleCoef = 0.02;
-var brokenHeartRotationCoef = 0.1;
-var brokenHeartDistanceCoef = 1.0;
-var brokenHeartAlphaeCoef = 0.03;
 
-window.addEventListener('load', eventWindowLoaded, false);
+//global game variables
+var backgroundColor = "#cceeff",
+	soundBreak = "sounds/break2.mp3",
+	maxSounds = 5,
+	soundVolume = 0.5,
+	gameLoopInterval = 50,
+	minHeartScale = 1.0,
+	maxHeartScale = 2.5,
+	heartScaleFactor = 0.015,
+	heartCreationInterval = 1000,
+	heartColor = "red",
+	halfHeartWidth = 32,
+	halfHeartHeight = 32,
+	maxHeartsPerLevel = 30,
+	sideMargin = 50,
+	gameState = "beforeStart",
+	startLevel = 2,
+	maxLevel = 7,
+	levelTimePeriod = 20000,
+	unbrokenHeartCount = 0,
+	maxUnbrokenHearts = 5,
+	inLevelDifficultyIncreaser = 1.002,
+	interLevelDifficultyCoef = 0.5;
+
+//broken heart globals
+var brokenHeartScaleCoef = 0.02,
+	brokenHeartRotationCoef = 0.1,
+	brokenHeartDistanceCoef = 3.0,
+	brokenHeartAlphaeCoef = 0.03;
+
+window.addEventListener("load", eventWindowLoaded, false);
 
 function eventWindowLoaded()
 {
    heartBreakerApp();
 }
 
-function heartBreakerApp(){
-	var gameCanvas = document.getElementById("gameCanvas");
-	var context = gameCanvas.getContext("2d");
+function heartBreakerApp()
+{
+	var gameCanvas = document.getElementById("gameCanvas"),
+		context = gameCanvas.getContext("2d");
+	
 	if (!gameCanvas || ! context)
 		return;
 	
-	var canvasWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
-	var canvasHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+	var canvasWidth = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth,
+		canvasHeight = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+	
 	gameCanvas.heigh = canvasHeight;
 	gameCanvas.width = canvasWidth;
 	//alert(canvasWidth + " " + canvasHeight);
 
 //game variables	
-	var mouseX;
-	var mouseY;
-	var proceedInput = true;
-	var estimatedCreationTime = 0;
-	var level = startLevel;
-	var levelTimeLeft = levelTimePeriod;
-	var levelDifficulty = 1.0;
-	var hearts = [];
-	var brokenHearts = [];
-	var heartSheet = new Image();
-	heartSheet.addEventListener('load', eventSheetLoaded , false);
+	var mouseX,
+		mouseY,
+		proceedInput = true,
+		estimatedCreationTime = 0,
+		level = startLevel,
+		levelTimeLeft = levelTimePeriod,
+		levelDifficulty = 1.0;
+
+	var hearts = [],
+		brokenHearts = [],
+		heartSheet = new Image();
+	
+	heartSheet.addEventListener("load", itemLoaded , false);
 	heartSheet.src = "images/heartSheet.png";
 	
-	//Gradient text output setup
+//Sounds stuff
+	var itemsToLoad = maxSounds + 1,
+		loadCount = 0,
+		soundPool = [],
+		tempAudio;
+
+	for (var i = 0; i < maxSounds; i++)
+	{
+		tempAudio = document.createElement("audio");
+		document.body.appendChild(tempAudio);
+		tempAudio.addEventListener("canplaythrough", itemLoaded, false);
+		tempAudio.setAttribute("src", soundBreak);
+		tempAudio.wasPlayed = false;
+		soundPool.push(tempAudio);
+	}
+	
+//Gradient text output setup
 	var gradientColorStops = new Array(
 		{color:"#FF0000", stopPercent:0},
 		{color:"#FFFF00", stopPercent:.125},
@@ -66,11 +92,23 @@ function heartBreakerApp(){
 		{color:"#0000FF", stopPercent:.625},
 		{color:"#FF00FF", stopPercent:.875},
 		{color:"#FF0000", stopPercent:1});
-
-	function eventSheetLoaded()
+	
+	function itemLoaded()
 	{
-		setUpGame();
+		loadCount++;
+
+		if (loadCount >= itemsToLoad)
+		{
+			heartSheet.removeEventListener("load", itemLoaded , false);
+			
+			for (var i = 0; i < maxSounds; i++)
+			{
+				soundPool[i].removeEventListener("canplaythrough", itemLoaded, false);
+			}
+			setUpGame();
+		}
 	}
+	
 /** @constructor */
 	function Heart(x, y, scale, scaleIncreasing)
 	{
@@ -79,12 +117,14 @@ function heartBreakerApp(){
 		this.scale = scale;
 		this.scaleIncreasing = scaleIncreasing;
 	}
+	
 	Heart.prototype.isIn = function (x, y)
 	{	
 		//Rect minus two triangles
-		var scale = this.scale + 0.1;
-		var sx = this.x + (1.0 - scale) * halfHeartWidth;
-		var sy = this.y + (1.0 - scale) * halfHeartHeight; 
+		var scale = this.scale + 0.1,
+			sx = this.x + (1.0 - scale) * halfHeartWidth,
+			sy = this.y + (1.0 - scale) * halfHeartHeight;
+		
 		if (sx < x && sy + 4 * scale < y && sx + 2 * halfHeartWidth * scale > x && 
 			y < halfHeartHeight * (x - sx) / halfHeartWidth + sy + halfHeartHeight * scale &&
 			y < halfHeartHeight * (x - sx - 2 * halfHeartWidth * scale) / (-halfHeartWidth) + sy + halfHeartHeight * scale)
@@ -97,6 +137,7 @@ function heartBreakerApp(){
 	
 	function setUpGame()
 	{
+		playSound(soundBreak, 0);
 		gameState = "beforeStart";
 		gameCanvas.addEventListener("click", onMouseClick, false);	
 		gameLoop();
@@ -178,6 +219,7 @@ function heartBreakerApp(){
 		else //Showing animated text
 		{
 			var message;
+			
 			if (gameState === "beforeStart")
 			{
 				message = "CLICK TO START";
@@ -198,14 +240,17 @@ function heartBreakerApp(){
 			context.font =  "40px impact";
 			context.textAlign = "center";
 			context.textBaseline = "middle";
-			var x = (canvasWidth/2);
-			var y = (canvasHeight/2);
+			
+			var x = (canvasWidth/2),
+				y = (canvasHeight/2);
+			
 			var gradient = context.createLinearGradient(canvasWidth/2, 0, canvasWidth/2, canvasHeight);
 			for (var i=0; i < gradientColorStops.length; i++)
 			{
-				var tempColorStop = gradientColorStops[i];
-				var tempColor = tempColorStop.color;
-				var tempStopPercent = tempColorStop.stopPercent;
+				var tempColorStop = gradientColorStops[i],
+					tempColor = tempColorStop.color,
+					tempStopPercent = tempColorStop.stopPercent;
+				
 				gradient.addColorStop(tempStopPercent,tempColor);
 				tempStopPercent += .03;
 				if (tempStopPercent > 1)
@@ -221,8 +266,8 @@ function heartBreakerApp(){
 	}
 	
 	function gameLoop()
-	{	
-		//hearth time scaling
+	{		
+	//hearth time scaling
 		if (gameState === "started")
 		{
 			for (var i = hearts.length - 1; i >= 0; i--)
@@ -331,6 +376,7 @@ function heartBreakerApp(){
 		for (var i = hearts.length - 1; i >= 0; i--)
 		{
 			var heart =  hearts[i];
+			
 			if (heart.isIn(x, y))
 			{
 				heart.alpha = 1.0;
@@ -338,17 +384,47 @@ function heartBreakerApp(){
 				heart.distance = 0.0;
 				brokenHearts.push(heart);
 				hearts.splice(i, 1);
+				playSound(soundBreak, soundVolume);
 				return true;
 			}
 		}
-	}	 
-}
-
-function incrementUnbrokenHearts()
-{
-	unbrokenHeartCount++;
-	if (unbrokenHeartCount >= maxUnbrokenHearts)
-	{
-		gameState = "over";
 	}
+
+	function incrementUnbrokenHearts()
+	{
+		unbrokenHeartCount++;
+		if (unbrokenHeartCount >= maxUnbrokenHearts)
+		{
+			gameState = "over";
+		}
+	}
+	
+	function playSound(sound, volume)
+	{
+		var soundFound = false,
+			soundIndex = 0,
+			tempSound;
+		
+		if (soundPool.length> 0)
+		{
+			while (!soundFound && soundIndex < soundPool.length)
+			{
+				tempSound = soundPool[soundIndex];
+				if (tempSound.ended || !tempSound.wasPlayed)
+				{
+					soundFound = true;
+					tempSound.wasPlayed = true;
+				}
+				else
+				{
+					soundIndex++;
+				}
+			}
+		}
+		if (soundFound)
+		{
+			tempSound.volume = volume;
+			tempSound.play();
+		}
+	}	
 }
